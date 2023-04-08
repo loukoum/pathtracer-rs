@@ -45,7 +45,7 @@ impl Film {
 		let mut image_buffer = image::ImageBuffer::new(self.width, self.height);
 
 		for (x, y, image_pixel) in image_buffer.enumerate_pixels_mut() {
-			let film_pixel = &self.pixels[self.index(x, y)];
+			let film_pixel = &self.pixels[self.index(x, self.height - y - 1)]; // the film is flipped in the camera so we need to revert it
 			let linear_color = &film_pixel.accumulated_radiance / (film_pixel.num_of_samples as f32);
 			let mut srgb = to_srgb(&linear_color);
 			srgb.x = f32::clamp(srgb.x, 0.0, 1.0);

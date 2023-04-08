@@ -3,14 +3,18 @@ use crate::shape::ShapeIntersection;
 use crate::tools as tools;
 use crate::tools::Sampler;
 
+#[derive(Debug)]
 pub struct MaterialSample {
-	pub radiance: Vector3,
+	pub brdf: Vector3,
 	pub sample_direction: Vector3,
 	pub pdf: f32,
 }
 
 pub trait Material {
 	fn sample_material(&self, wo: &Vector3, intersection: &ShapeIntersection, sampler: &mut Sampler) -> MaterialSample;
+	fn get_emission(&self) -> Vector3 {
+		Vector3::zero_vector()
+	}
 }
 
 pub struct NoMaterial;
@@ -39,7 +43,7 @@ pub struct TransparentMaterial {
 
 impl MaterialSample {
 	pub fn invalid_sample() -> MaterialSample {
-		MaterialSample { radiance: Vector3::zero_vector(), sample_direction: Vector3::zero_vector(), pdf: 0.0 }
+		MaterialSample { brdf: Vector3::zero_vector(), sample_direction: Vector3::zero_vector(), pdf: 0.0 }
 	}
 }
 
@@ -51,10 +55,11 @@ impl EmissiveMaterial {
 
 impl Material for EmissiveMaterial {
 	fn sample_material(&self, _wo: &Vector3, _intersection: &ShapeIntersection, _sampler: &mut Sampler) -> MaterialSample {
-		MaterialSample { radiance: self.emission
-			, sample_direction: Vector3::zero_vector()
-			, pdf: 0.0
-		}
+		MaterialSample::invalid_sample()
+	}
+
+	fn get_emission(&self) -> Vector3 {
+		self.emission
 	}
 }
 
@@ -75,7 +80,7 @@ impl Material for DiffuseMaterial {
 			, z: f32::abs(cos_theta)
 		};
 
-		MaterialSample { radiance: &self.color * ONE_OVER_PI, sample_direction: sample_dir, pdf: 0.5 * ONE_OVER_PI }
+		MaterialSample { brdf: &self.color * ONE_OVER_PI, sample_direction: sample_dir, pdf: 0.5 * ONE_OVER_PI }
 	}
 }
 
@@ -105,7 +110,7 @@ fn fresnel_schlik(r0: &Vector3, cos_theta: f32) -> Vector3 {
 #[inline(always)]
 fn calculate_fresnel(eta: f32, cos_theta: f32) -> f32 {
 	let g_sqrt = eta * eta + cos_theta * cos_theta - 1.0;
-	if tools::is_negative_error(g_sqrt) {
+	if !tools::is_positive_error(g_sqrt) {
 		return 1.0;
 	}
 
@@ -120,7 +125,6 @@ fn calculate_fresnel(eta: f32, cos_theta: f32) -> f32 {
 
 	let mut sec = ((g + cos_theta) * cos_theta - 1.0) / denom;
 	sec *= sec;
-
 	return first * (1.0 + sec);
 }
 
@@ -131,7 +135,7 @@ impl Material for ReflectiveMaterial {
 			return MaterialSample::invalid_sample();
 		}
 
-		MaterialSample { radiance: fresnel_schlik(&self.color, wo_dot_n)
+		MaterialSample { brdf: fresnel_schlik(&self.color, wo_dot_n)
 			, sample_direction: reflect(wo, &intersection.surface_normal, wo_dot_n)
 			, pdf: 1.0
 		}
@@ -145,28 +149,28 @@ impl Material for TransparentMaterial {
 			return MaterialSample::invalid_sample();
 		}
 
-		let eta = if wo_dot_n > 0.0 { self.ior } else { 1.0 / self.ior };
+		let eta = if wo_dot_n < 0.0 { self.ior } else { 1.0 / self.ior };
 		let mut n = intersection.surface_normal;
-		if tools::is_negative_error(wo_dot_n) {
+		if wo_dot_n < 0.0 {
 			wo_dot_n = -wo_dot_n;
 			n = -&n;
 		}
 
 		let fresnel = calculate_fresnel(eta, wo_dot_n);
-		if fresnel < sampler.get_sample() {
-			return MaterialSample { radiance: fresnel_schlik(&self.color, wo_dot_n)
+		if sampler.get_sample() < fresnel {
+			return MaterialSample { brdf: &self.color * (fresnel / wo_dot_n)
 				, sample_direction: reflect(wo, &n, wo_dot_n)
 				, pdf: fresnel
 			}
 		}
 
 		let wi = refract(wo, &n, 1.0 / eta, wo_dot_n);
-		let wi_dot_n = wi.dot(&intersection.surface_normal);
+		let wi_dot_n = f32::abs(wi.dot(&intersection.surface_normal));
 		if tools::equal_error(wi_dot_n, 0.0) {
 			return MaterialSample::invalid_sample();
 		}
 
-		MaterialSample { radiance: &self.color * (fresnel * eta * eta / wi_dot_n)
+		MaterialSample { brdf: &self.color * (fresnel * eta * eta / wi_dot_n)
 			, sample_direction: wi
 			, pdf: 1.0 - fresnel
 		}
@@ -177,7 +181,7 @@ impl Material for TransparentMaterial {
 mod material_tests {
 	use super::EmissiveMaterial;
 	use crate::material::Material;
-use crate::vector::Vector3;
+	use crate::vector::Vector3;
 	use crate::camera::Camera;
 	use crate::shape::{Shape, Sphere};
 	use crate::film::Film;
@@ -207,7 +211,7 @@ use crate::vector::Vector3;
 				if intersection.t >= 0.0 {
 					assert!(tools::equal_error(intersection.surface_normal.length(), 1.0));
 					assert!(intersection.surface_normal.z <= 0.0);
-					let sample_radiance = material.sample_material(&(-&ray.direction), &intersection, &mut sampler).radiance;
+					let sample_radiance = material.get_emission();
 					film.add_sample(x, y, &sample_radiance);
 				}
 			}

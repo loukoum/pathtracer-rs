@@ -18,11 +18,12 @@ impl Camera {
 	pub fn new(fov: f32, aspect_ratio: f32, position: &Vector3, look_dir: &Vector3, up_dir: &Vector3) -> Camera {
 		let left = look_dir.cross(up_dir).unit();
 		let half_width = f32::tanh(fov / 2.0);
-		return Camera { position: *position
+
+		Camera { position: *position
 			, left_edge: look_dir + &(&left * half_width)
 			, horizontal_parallel: &left * (half_width * -2.0)
 			, vertical_parallel: up_dir * ((2.0 * half_width) / aspect_ratio)
-		};
+		}
 	}
 
 	#[inline(always)]

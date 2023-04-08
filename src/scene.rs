@@ -32,7 +32,7 @@ impl <'a> Scene<'a> {
 		Scene { entities: Vec::new(), sky: sky }
 	}
 
-	pub fn add_entity(&mut self, entity: &Entity<'a>) {
+	pub fn add_entity(&mut self, entity: Entity<'a>) {
 		self.entities.push(entity.clone());
 	}
 
@@ -42,7 +42,7 @@ impl <'a> Scene<'a> {
 
 		for entity in self.entities.iter() {
 			let intersection = 	entity.shape.intersect(ray);
-			if intersection.t < t {
+			if intersection.t >= 0.0 && intersection.t < t {
 				t = intersection.t;
 				entity_intersection.shape_intersection = intersection;
 				entity_intersection.material = entity.material;

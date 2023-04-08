@@ -153,7 +153,7 @@ mod shape_tests {
 		let camera = Camera::new(std::f32::consts::PI, (width as f32) / (height as f32), &camera_position, &camera_direction, &camera_up);
 		let plane = Plane { position: plane_position
 			, normal: plane_normal
-			, width: 4.0
+			, width: 5.0
 			, height: 3.0 };
 
 		let mut film = Film::new(width, height);
