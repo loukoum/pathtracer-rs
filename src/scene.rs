@@ -21,10 +21,10 @@ pub struct EntityIntersection<'a> {
     pub material: &'a dyn Material,
 }
 
-impl<'a> EntityIntersection<'a> {
-    pub fn new() -> EntityIntersection<'a> {
+impl<'a> Default for EntityIntersection<'a> {
+    fn default() -> EntityIntersection<'a> {
         EntityIntersection {
-            shape_intersection: ShapeIntersection::new(),
+            shape_intersection: ShapeIntersection::default(),
             material: &NoMaterial,
         }
     }
@@ -34,17 +34,17 @@ impl<'a> Scene<'a> {
     pub fn new(sky: Vector3) -> Scene<'a> {
         Scene {
             entities: Vec::new(),
-            sky: sky,
+            sky,
         }
     }
 
     pub fn add_entity(&mut self, entity: Entity<'a>) {
-        self.entities.push(entity.clone());
+        self.entities.push(entity);
     }
 
     pub fn trace(&self, ray: &Ray) -> EntityIntersection {
         let mut t = f32::MAX;
-        let mut entity_intersection = EntityIntersection::new();
+        let mut entity_intersection = EntityIntersection::default();
 
         for entity in self.entities.iter() {
             let intersection = entity.shape.intersect(ray);
@@ -55,6 +55,6 @@ impl<'a> Scene<'a> {
             }
         }
 
-        return entity_intersection;
+        entity_intersection
     }
 }

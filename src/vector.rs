@@ -40,7 +40,7 @@ impl Vector3 {
     #[inline(always)]
     pub fn unit(&self) -> Vector3 {
         let inv_length = 1.0 / self.length();
-        return self * inv_length;
+        self * inv_length
     }
 
     #[inline(always)]
@@ -217,7 +217,7 @@ mod vector_tests {
             z: 0.0,
         };
         v0 = &v1 - &v0;
-        assert!(&v0 == &v1);
+        assert!(v0 == v1);
 
         v0 = v1;
         v0 -= &v1;
@@ -235,7 +235,7 @@ mod vector_tests {
             y: 9.0,
             z: 2.0,
         };
-        assert!(&a != &b);
+        assert!(a != b);
 
         let a_x_b = a.cross(&b);
         assert!(tools::equal_error(a_x_b.x, -15.0));
@@ -268,7 +268,7 @@ mod vector_tests {
         assert!(tools::equal_error(a_mul_b.z, 2.0));
 
         let c = b;
-        assert!(&c == &b);
+        assert!(c == b);
 
         let mut vec = Vector3 {
             x: 3.0,

@@ -104,7 +104,7 @@ impl Material for DiffuseMaterial {
         let sample_dir = Vector3 {
             x: sin_theta * f32::cos(phi),
             y: sin_theta * f32::sin(phi),
-            z: f32::abs(cos_theta),
+            z: cos_theta.abs(),
         };
 
         MaterialSample {
@@ -128,7 +128,7 @@ fn refract(wo: &Vector3, n: &Vector3, one_over_eta: f32, wo_dot_n: f32) -> Vecto
     }
 
     let cos_theta_t = f32::sqrt(1.0 - sin2_theta_eta2);
-    return &(&(-wo) * one_over_eta) + &(n * (one_over_eta * wo_dot_n - cos_theta_t));
+    &(&(-wo) * one_over_eta) + &(n * (one_over_eta * wo_dot_n - cos_theta_t))
 }
 
 #[inline(always)]
@@ -139,7 +139,7 @@ fn fresnel_schlik(r0: &Vector3, cos_theta: f32) -> Vector3 {
         z: 1.0,
     };
     let oct = 1.0 - cos_theta;
-    return r0 + &(&(&ONES_VEC - r0) * (oct * oct * oct * oct * oct));
+    r0 + &(&(&ONES_VEC - r0) * (oct * oct * oct * oct * oct))
 }
 
 #[inline(always)]
@@ -151,7 +151,7 @@ fn calculate_fresnel(eta: f32, cos_theta: f32) -> f32 {
 
     let g = f32::sqrt(g_sqrt);
     let mut first = (g - cos_theta) / (g + cos_theta);
-    first *= 0.5 * first;
+    first = first * 0.5 * first;
 
     let denom = (g - cos_theta) * cos_theta + 1.0;
     if tools::equal_error(denom, 0.0) {
@@ -160,7 +160,7 @@ fn calculate_fresnel(eta: f32, cos_theta: f32) -> f32 {
 
     let mut sec = ((g + cos_theta) * cos_theta - 1.0) / denom;
     sec *= sec;
-    return first * (1.0 + sec);
+    first * (1.0 + sec)
 }
 
 impl Material for ReflectiveMaterial {

@@ -18,7 +18,7 @@ pub fn render_scene(scene: &Scene, camera: &Camera, render_settings: &RenderSett
         render_settings.image_width, render_settings.image_height, render_settings.num_of_samples
     );
     let mut film = Film::new(render_settings.image_width, render_settings.image_height);
-    let mut sampler = Sampler::new();
+    let mut sampler = Sampler::default();
 
     let total_samples =
         render_settings.image_width * render_settings.image_height * render_settings.num_of_samples;
@@ -38,7 +38,7 @@ pub fn render_scene(scene: &Scene, camera: &Camera, render_settings: &RenderSett
     }
 
     println!("\nDone!");
-    return film;
+    film
 }
 
 fn trace_ray(ray: &Ray, scene: &Scene, sampler: &mut Sampler) -> Vector3 {
@@ -86,5 +86,5 @@ fn trace_ray(ray: &Ray, scene: &Scene, sampler: &mut Sampler) -> Vector3 {
             + &(&r.direction * 0.01);
     }
 
-    return Vector3::zero_vector();
+    Vector3::zero_vector()
 }

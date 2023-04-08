@@ -23,8 +23,8 @@ pub struct Plane {
     pub height: f32,
 }
 
-impl ShapeIntersection {
-    pub fn new() -> ShapeIntersection {
+impl Default for ShapeIntersection {
+    fn default() -> ShapeIntersection {
         ShapeIntersection {
             t: -1.0,
             surface_normal: Vector3 {
@@ -38,7 +38,7 @@ impl ShapeIntersection {
 
 impl Shape for Sphere {
     fn intersect(&self, ray: &Ray) -> ShapeIntersection {
-        let mut intersection = ShapeIntersection::new();
+        let mut intersection = ShapeIntersection::default();
         let translated_origin = &ray.origin - &self.position; // Move sphere origin to 0, 0, 0 for easier calculations
         let a = 1.0; // a = (dx * dx + dy * dy + dz * dz) where d is ray.direction. ray.direction is normalized => a = 1.0 since dir.dot(dir) = len^2
         let b = 2.0 * translated_origin.dot(&ray.direction); // 2.0 * (dx * ox + dy * oy + dz * oz) where d is ray.direction and o is the translated_origin
@@ -67,13 +67,13 @@ impl Shape for Sphere {
             // normalize
         }
 
-        return intersection;
+        intersection
     }
 }
 
 impl Shape for Plane {
     fn intersect(&self, ray: &Ray) -> ShapeIntersection {
-        let mut intersection = ShapeIntersection::new();
+        let mut intersection = ShapeIntersection::default();
 
         let denom = self.normal.dot(&ray.direction);
         if tools::is_positive_error(f32::abs(denom)) {
@@ -93,7 +93,7 @@ impl Shape for Plane {
             }
         }
 
-        return intersection;
+        intersection
     }
 }
 

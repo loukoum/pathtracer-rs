@@ -35,7 +35,7 @@ impl Camera {
 
     #[inline(always)]
     pub fn generate_ray(&self, film_x: f32, film_y: f32) -> Ray {
-        debug_assert!(film_x >= 0.0 && film_x <= 1.0 && film_y >= 0.0 && film_y <= 1.0);
+        debug_assert!((0.0..=1.0).contains(&film_x) && (0.0..=1.0).contains(&film_y));
         Ray {
             origin: self.position,
             direction: (&(&self.left_edge + &(&self.horizontal_parallel * film_x))

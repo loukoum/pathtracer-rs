@@ -9,7 +9,7 @@ pub struct FilmSample {
 pub struct Film {
     width: u32,
     height: u32,
-    pixels: Box<[FilmSample]>,
+    pixels: Vec<FilmSample>,
 }
 
 pub fn to_srgb(linear_color: &Vector3) -> Vector3 {
@@ -17,17 +17,17 @@ pub fn to_srgb(linear_color: &Vector3) -> Vector3 {
         x: if linear_color.x <= 0.0031 {
             linear_color.x * 12.92
         } else {
-            1.055 * f32::powf(linear_color.x, 0.4166) - 0.055
+            1.055 * linear_color.x.powf(0.4166) - 0.055
         },
         y: if linear_color.y <= 0.0031 {
             linear_color.y * 12.92
         } else {
-            1.055 * f32::powf(linear_color.y, 0.4166) - 0.055
+            1.055 * linear_color.y.powf(0.4166) - 0.055
         },
         z: if linear_color.z <= 0.0031 {
             linear_color.z * 12.92
         } else {
-            1.055 * f32::powf(linear_color.z, 0.4166) - 0.055
+            1.055 * linear_color.z.powf(0.4166) - 0.055
         },
     }
 }
@@ -35,8 +35,8 @@ pub fn to_srgb(linear_color: &Vector3) -> Vector3 {
 impl Film {
     pub fn new(width: u32, height: u32) -> Film {
         Film {
-            width: width,
-            height: height,
+            width,
+            height,
             pixels: vec![
                 FilmSample {
                     num_of_samples: 0,
@@ -47,8 +47,7 @@ impl Film {
                     }
                 };
                 (width * height) as usize
-            ]
-            .into_boxed_slice(),
+            ],
         }
     }
 
@@ -73,9 +72,9 @@ impl Film {
             let linear_color =
                 &film_pixel.accumulated_radiance / (film_pixel.num_of_samples as f32);
             let mut srgb = to_srgb(&linear_color);
-            srgb.x = f32::clamp(srgb.x, 0.0, 1.0);
-            srgb.y = f32::clamp(srgb.y, 0.0, 1.0);
-            srgb.z = f32::clamp(srgb.z, 0.0, 1.0);
+            srgb.x = srgb.x.clamp(0.0, 1.0);
+            srgb.x = srgb.y.clamp(0.0, 1.0);
+            srgb.x = srgb.z.clamp(0.0, 1.0);
             *image_pixel = image::Rgb([
                 (srgb.x * 255.0) as u8,
                 (srgb.y * 255.0) as u8,

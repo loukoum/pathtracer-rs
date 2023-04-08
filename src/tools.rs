@@ -35,14 +35,16 @@ pub struct Sample2D {
     pub t: f32,
 }
 
-impl Sampler {
-    pub fn new() -> Sampler {
-        Sampler {
+impl Default for Sampler {
+    fn default() -> Self {
+        Self {
             rgen: rand::thread_rng(),
             distribution: UniformFloat::new(0.0, 1.0),
         }
     }
+}
 
+impl Sampler {
     #[inline(always)]
     pub fn get_sample(&mut self) -> f32 {
         self.distribution.sample(&mut self.rgen)
