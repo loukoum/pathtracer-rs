@@ -92,7 +92,7 @@ impl Material for DiffuseMaterial {
         intersection: &ShapeIntersection,
         sampler: &mut Sampler,
     ) -> MaterialSample {
-        if tools::is_negative_error(wo.dot(&intersection.surface_normal)) {
+        if !tools::is_positive_error(wo.dot(&intersection.surface_normal)) {
             return MaterialSample::invalid_sample();
         }
 
@@ -171,12 +171,12 @@ impl Material for ReflectiveMaterial {
         _sampler: &mut Sampler,
     ) -> MaterialSample {
         let wo_dot_n = wo.dot(&intersection.surface_normal);
-        if tools::is_negative_error(wo_dot_n) {
+        if !tools::is_positive_error(wo_dot_n) {
             return MaterialSample::invalid_sample();
         }
 
         MaterialSample {
-            brdf: fresnel_schlik(&self.color, wo_dot_n),
+            brdf: &fresnel_schlik(&self.color, wo_dot_n) / wo_dot_n,
             sample_direction: reflect(wo, &intersection.surface_normal, wo_dot_n),
             pdf: 1.0,
         }
