@@ -84,6 +84,14 @@ impl Material for EmissiveMaterial {
     }
 }
 
+#[inline(always)]
+fn transform_to_base_unit(vec: &Vector3, normal: &Vector3) -> Vector3 {
+    let mut t = Vector3::zero_vector();
+    let mut b = Vector3::zero_vector();
+    normal.create_basis(&mut b, &mut t);
+    Vector3::to_basis(vec, normal, &t, &b).unit()
+}
+
 impl Material for DiffuseMaterial {
     // sample hemisphere uniformly
     fn sample_material(
@@ -104,12 +112,12 @@ impl Material for DiffuseMaterial {
         let sample_dir = Vector3 {
             x: sin_theta * f32::cos(phi),
             y: sin_theta * f32::sin(phi),
-            z: cos_theta.abs(),
+            z: f32::abs(cos_theta),
         };
 
         MaterialSample {
             brdf: &self.color * ONE_OVER_PI,
-            sample_direction: sample_dir,
+            sample_direction: transform_to_base_unit(&sample_dir, &intersection.surface_normal),
             pdf: 0.5 * ONE_OVER_PI,
         }
     }
@@ -132,17 +140,6 @@ fn refract(wo: &Vector3, n: &Vector3, one_over_eta: f32, wo_dot_n: f32) -> Vecto
 }
 
 #[inline(always)]
-fn fresnel_schlik(r0: &Vector3, cos_theta: f32) -> Vector3 {
-    const ONES_VEC: Vector3 = Vector3 {
-        x: 1.0,
-        y: 1.0,
-        z: 1.0,
-    };
-    let oct = 1.0 - cos_theta;
-    r0 + &(&(&ONES_VEC - r0) * (oct * oct * oct * oct * oct))
-}
-
-#[inline(always)]
 fn calculate_fresnel(eta: f32, cos_theta: f32) -> f32 {
     let g_sqrt = eta * eta + cos_theta * cos_theta - 1.0;
     if !tools::is_positive_error(g_sqrt) {
@@ -154,7 +151,7 @@ fn calculate_fresnel(eta: f32, cos_theta: f32) -> f32 {
     first = first * 0.5 * first;
 
     let denom = (g - cos_theta) * cos_theta + 1.0;
-    if tools::equal_error(denom, 0.0) {
+    if !tools::is_positive_error(denom) {
         return 1.0;
     }
 
@@ -170,13 +167,14 @@ impl Material for ReflectiveMaterial {
         intersection: &ShapeIntersection,
         _sampler: &mut Sampler,
     ) -> MaterialSample {
+        const ETA: f32 = 0.04;
         let wo_dot_n = wo.dot(&intersection.surface_normal);
         if !tools::is_positive_error(wo_dot_n) {
             return MaterialSample::invalid_sample();
         }
 
         MaterialSample {
-            brdf: &fresnel_schlik(&self.color, wo_dot_n) / wo_dot_n,
+            brdf: &self.color * (calculate_fresnel(ETA, wo_dot_n) / wo_dot_n),
             sample_direction: reflect(wo, &intersection.surface_normal, wo_dot_n),
             pdf: 1.0,
         }
@@ -195,7 +193,7 @@ impl Material for TransparentMaterial {
             return MaterialSample::invalid_sample();
         }
 
-        let eta = if wo_dot_n < 0.0 {
+        let eta = if wo_dot_n > 0.0 {
             self.ior
         } else {
             1.0 / self.ior
@@ -215,16 +213,18 @@ impl Material for TransparentMaterial {
             };
         }
 
-        let wi = refract(wo, &n, 1.0 / eta, wo_dot_n);
+        let wi = refract(wo, &n, 1.0 / eta, wo_dot_n).unit();
         let wi_dot_n = f32::abs(wi.dot(&intersection.surface_normal));
         if tools::equal_error(wi_dot_n, 0.0) {
             return MaterialSample::invalid_sample();
         }
 
+        let refraction_fresnel = 1.0 - fresnel;
+        let brdf = &self.color * (refraction_fresnel * eta * eta / wi_dot_n);
         MaterialSample {
-            brdf: &self.color * (fresnel * eta * eta / wi_dot_n),
+            brdf,
             sample_direction: wi,
-            pdf: 1.0 - fresnel,
+            pdf: refraction_fresnel,
         }
     }
 }
@@ -264,11 +264,11 @@ mod material_tests {
             z: 10.0,
         };
         let camera = Camera::new(
-            std::f32::consts::PI,
+            std::f32::consts::PI / 2.0,
             (width as f32) / (height as f32),
-            &camera_position,
-            &camera_direction,
-            &camera_up,
+            camera_position,
+            camera_direction,
+            camera_up,
         );
         let sphere = Sphere {
             position: sphere_position,

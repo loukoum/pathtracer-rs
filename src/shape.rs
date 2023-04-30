@@ -16,11 +16,14 @@ pub struct Sphere {
     pub radius: f32,
 }
 
+#[derive(Debug)]
 pub struct Plane {
     pub position: Vector3,
     pub normal: Vector3,
-    pub width: f32,
-    pub height: f32,
+    pub up: Vector3,
+    pub half_width: f32,
+    pub half_height: f32,
+    right: Vector3,
 }
 
 impl Default for ShapeIntersection {
@@ -49,8 +52,8 @@ impl Shape for Sphere {
         }
 
         let sqrt_disc = f32::sqrt(disc);
-        let t0 = (-b + sqrt_disc) / (2.0 * a);
-        let t1 = (-b - sqrt_disc) / (2.0 * a);
+        let t0 = (-b + sqrt_disc) * 0.5; // should be div(/) 2 * a but a = 1
+        let t1 = (-b - sqrt_disc) * 0.5;
 
         if t1 >= 0.0 {
             // both t0 and t1 are greater than 0.0
@@ -63,11 +66,26 @@ impl Shape for Sphere {
 
         if intersection.t >= 0.0 {
             let intersection_point = &ray.origin + &(&ray.direction * intersection.t);
-            intersection.surface_normal = &(&intersection_point - &self.position) / self.radius;
-            // normalize
+            intersection.surface_normal = (&intersection_point - &self.position).unit();
         }
 
         intersection
+    }
+}
+
+impl Plane {
+    pub fn new(position: Vector3, normal: Vector3, up: Vector3, width: f32, height: f32) -> Plane {
+        debug_assert!(tools::equal_error(normal.length(), 1.0));
+        debug_assert!(tools::equal_error(up.length(), 1.0));
+        debug_assert!(tools::equal_error(up.cross(&normal).length(), 1.0));
+        Plane {
+            position,
+            normal,
+            up,
+            right: up.cross(&normal),
+            half_width: width * 0.5,
+            half_height: height * 0.5,
+        }
     }
 }
 
@@ -76,13 +94,23 @@ impl Shape for Plane {
         let mut intersection = ShapeIntersection::default();
 
         let denom = self.normal.dot(&ray.direction);
-        if tools::is_positive_error(f32::abs(denom)) {
-            let pos_or = &self.position - &ray.origin;
-            let t = self.normal.dot(&pos_or) / denom;
+        if f32::abs(denom) > 0.0 {
+            let pos_origin = &self.position - &ray.origin;
+            let t = self.normal.dot(&pos_origin) / denom;
             if t >= 0.0 {
-                let plane_x_dist = f32::abs(ray.origin.x + ray.direction.x * t - self.position.x);
-                let plane_y_dist = f32::abs(ray.origin.y + ray.direction.y * t - self.position.y);
-                if plane_x_dist <= self.width && plane_y_dist <= self.height {
+                let intersection_point_origin =
+                    &(&ray.origin + &(&ray.direction * t)) - &self.position;
+
+                let plane_basis_ip = &Vector3::to_basis(
+                    &intersection_point_origin,
+                    &self.normal,
+                    &self.right,
+                    &self.up,
+                );
+
+                if plane_basis_ip.x.abs() <= self.half_width
+                    && plane_basis_ip.y.abs() <= self.half_height
+                {
                     intersection.t = t;
                     intersection.surface_normal = self.normal;
                     debug_assert!(tools::equal_error(
@@ -133,20 +161,25 @@ mod shape_tests {
         let sphere_intersection = sphere.intersect(&ray);
         assert!(sphere_intersection.t > 0.0);
 
-        let plane = Plane {
-            position: Vector3 {
+        let plane = Plane::new(
+            Vector3 {
                 x: 13.0,
                 y: -69.0,
                 z: 4.2,
             },
-            normal: Vector3 {
+            Vector3 {
                 x: 0.0,
                 y: 0.0,
                 z: 1.0,
             },
-            width: 5.0,
-            height: 5.0,
-        };
+            Vector3 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            },
+            1.0,
+            1.0,
+        );
         let plane_intersection = plane.intersect(&ray);
         assert!(plane_intersection.t > 0.0);
     }
@@ -171,20 +204,20 @@ mod shape_tests {
             z: 0.0,
         };
         let sphere_position = Vector3 {
-            x: 0.0,
+            x: 5.0,
             y: 0.0,
             z: 10.0,
         };
         let camera = Camera::new(
-            std::f32::consts::PI,
+            std::f32::consts::PI / 2.0,
             (width as f32) / (height as f32),
-            &camera_position,
-            &camera_direction,
-            &camera_up,
+            camera_position,
+            camera_direction,
+            camera_up,
         );
         let sphere = Sphere {
             position: sphere_position,
-            radius: 5.0,
+            radius: 3.0,
         };
         let mut film = Film::new(width, height);
         for x in 0..width {
@@ -198,7 +231,6 @@ mod shape_tests {
                         intersection.surface_normal.length(),
                         1.0
                     ));
-                    assert!(intersection.surface_normal.z <= 0.0);
                     let sample_radiance = Vector3 {
                         x: 1.0 / intersection.t + (x as f32 / 1000.0),
                         y: 0.05,
@@ -234,27 +266,29 @@ mod shape_tests {
         let plane_position = Vector3 {
             x: 0.0,
             y: 0.0,
-            z: 10.0,
+            z: 5.0,
         };
-        let plane_normal = (Vector3 {
+        let plane_normal = Vector3 {
+            x: 0.0,
+            y: 0.0,
+            z: 1.0,
+        };
+        let plane_up = Vector3 {
             x: 0.0,
             y: 1.0,
-            z: 1.0,
-        })
+            z: 0.0,
+        }
         .unit();
+
         let camera = Camera::new(
-            std::f32::consts::PI,
+            std::f32::consts::PI / 2.0,
             (width as f32) / (height as f32),
-            &camera_position,
-            &camera_direction,
-            &camera_up,
+            camera_position,
+            camera_direction,
+            camera_up,
         );
-        let plane = Plane {
-            position: plane_position,
-            normal: plane_normal,
-            width: 5.0,
-            height: 3.0,
-        };
+
+        let plane = Plane::new(plane_position, plane_normal, plane_up, 4.0, 4.0);
 
         let mut film = Film::new(width, height);
         for x in 0..width {
@@ -263,10 +297,10 @@ mod shape_tests {
                 let film_y = (y as f32 + 0.5) / (height as f32);
                 let ray = camera.generate_ray(film_x, film_y);
                 let intersection = plane.intersect(&ray);
-                if intersection.t >= 0.0 {
+                if intersection.t > 0.0 {
                     let sample_radiance = Vector3 {
                         x: 1.0 / intersection.t + (x as f32 / 1000.0),
-                        y: 0.05,
+                        y: 0.1,
                         z: 1.0 / intersection.t,
                     };
                     film.add_sample(x, y, &sample_radiance);

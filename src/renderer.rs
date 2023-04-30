@@ -41,9 +41,9 @@ pub fn render_scene(scene: &Scene, camera: &Camera, render_settings: &RenderSett
     film
 }
 
-fn trace_ray(ray: &Ray, scene: &Scene, sampler: &mut Sampler) -> Vector3 {
+fn trace_ray(camera_ray: &Ray, scene: &Scene, sampler: &mut Sampler) -> Vector3 {
     const MAX_DEPTH: u32 = 8;
-    let mut r = *ray;
+    let mut ray = *camera_ray;
     let mut throughput = Vector3 {
         x: 1.0,
         y: 1.0,
@@ -51,7 +51,7 @@ fn trace_ray(ray: &Ray, scene: &Scene, sampler: &mut Sampler) -> Vector3 {
     };
 
     for _ in 0..MAX_DEPTH {
-        let intersection = scene.trace(&r);
+        let intersection = scene.trace(&ray);
         if intersection.shape_intersection.t < 0.0 {
             return &throughput * &scene.sky;
         }
@@ -62,7 +62,7 @@ fn trace_ray(ray: &Ray, scene: &Scene, sampler: &mut Sampler) -> Vector3 {
         }
 
         let material_sample = intersection.material.sample_material(
-            &(-&r.direction),
+            &(-&ray.direction),
             &intersection.shape_intersection,
             sampler,
         );
@@ -72,18 +72,20 @@ fn trace_ray(ray: &Ray, scene: &Scene, sampler: &mut Sampler) -> Vector3 {
                 .dot(&intersection.shape_intersection.surface_normal),
         );
 
-        if material_sample.brdf.is_zero()
-            || !tools::is_positive_error(material_sample.pdf)
-            || !tools::is_positive_error(wi_dot_n)
+        if tools::equal_error(material_sample.pdf, 0.0)
+            || material_sample.sample_direction.is_zero()
         {
             break;
         }
 
-        throughput *= &(&(&throughput * &material_sample.brdf) * (wi_dot_n / material_sample.pdf));
+        let new_throughput = &material_sample.brdf * (wi_dot_n / material_sample.pdf);
+        throughput *= &new_throughput;
 
-        r.direction = material_sample.sample_direction;
-        r.origin = &(&ray.origin + &(&ray.direction * intersection.shape_intersection.t))
-            + &(&r.direction * 0.01);
+        let intersection_point =
+            &ray.origin + &(&ray.direction * intersection.shape_intersection.t);
+
+        ray.origin = &intersection_point + &(&material_sample.sample_direction * 0.001);
+        ray.direction = material_sample.sample_direction;
     }
 
     Vector3::zero_vector()

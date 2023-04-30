@@ -73,8 +73,8 @@ impl Film {
                 &film_pixel.accumulated_radiance / (film_pixel.num_of_samples as f32);
             let mut srgb = to_srgb(&linear_color);
             srgb.x = srgb.x.clamp(0.0, 1.0);
-            srgb.x = srgb.y.clamp(0.0, 1.0);
-            srgb.x = srgb.z.clamp(0.0, 1.0);
+            srgb.y = srgb.y.clamp(0.0, 1.0);
+            srgb.z = srgb.z.clamp(0.0, 1.0);
             *image_pixel = image::Rgb([
                 (srgb.x * 255.0) as u8,
                 (srgb.y * 255.0) as u8,

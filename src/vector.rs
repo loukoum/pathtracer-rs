@@ -17,6 +17,10 @@ impl Vector3 {
         }
     }
 
+    pub fn to_basis(vec: &Vector3, n: &Vector3, t: &Vector3, b: &Vector3) -> Vector3 {
+        &(t * vec.x) + &(&(b * vec.y) + &(n * vec.z))
+    }
+
     #[inline(always)]
     pub fn dot(&self, other: &Vector3) -> f32 {
         self.x * other.x + self.y * other.y + self.z * other.z
@@ -24,7 +28,6 @@ impl Vector3 {
 
     #[inline(always)]
     pub fn length(&self) -> f32 {
-        assert!(!self.is_zero());
         f32::sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
     }
 
@@ -39,12 +42,14 @@ impl Vector3 {
 
     #[inline(always)]
     pub fn unit(&self) -> Vector3 {
+        debug_assert!(!self.is_zero());
         let inv_length = 1.0 / self.length();
         self * inv_length
     }
 
     #[inline(always)]
     pub fn normalize(&mut self) {
+        debug_assert!(!self.is_zero());
         let inv_lenth = 1.0 / self.length();
         self.x *= inv_lenth;
         self.y *= inv_lenth;
@@ -56,6 +61,39 @@ impl Vector3 {
         tools::equal_error(self.x, 0.0)
             && tools::equal_error(self.y, 0.0)
             && tools::equal_error(self.z, 0.0)
+    }
+
+    #[inline(always)]
+    pub fn clamp(&self, min: f32, max: f32) -> Vector3 {
+        Vector3 {
+            x: self.x.clamp(min, max),
+            y: self.y.clamp(min, max),
+            z: self.z.clamp(min, max),
+        }
+    }
+
+    #[inline(always)]
+    pub fn create_basis(&self, b: &mut Vector3, t: &mut Vector3) {
+        let normal = self.unit();
+        let x: f32;
+        let y: f32;
+        let z: f32;
+        if !tools::equal_error(normal.z, 0.0) {
+            x = 1.0;
+            y = 1.0;
+            z = -((normal.x + normal.y) / normal.z);
+        } else if !tools::equal_error(normal.y, 0.0) {
+            x = 1.0;
+            y = -((normal.x + normal.z) / normal.y);
+            z = 1.0;
+        } else {
+            x = -((normal.y + normal.z) / normal.x);
+            y = 1.0;
+            z = 1.0;
+        }
+
+        *t = Vector3 { x, y, z }.unit();
+        *b = t.cross(&normal);
     }
 }
 
